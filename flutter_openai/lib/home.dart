@@ -2,41 +2,14 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'components/textfieldbldr.dart';
+import 'components/promptbldr.dart';
+import 'models/response_model.dart';
 
-Future<String>getOpenAIResponse(String prompt) async {
-  await dotenv.load(fileName: '.env');
-  final apiKey = dotenv.env['SECRET_KEY'];
-  const endPoint = 'https://api.openai.com/v1/chat/completions';
-
-  final response = await http.post(
-    Uri.parse(endPoint),
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $apiKey',
-    },
-    body: jsonEncode({'prompt': prompt, 'max_tokens': 150}),
-  );
-
-  if (response.statusCode == 200) {
-    return jsonDecode(response.body)['choices'][0]['text'];
-  } else {
-    throw Exception('Failed to load response');
-  }
-}
-
-
+final apiKey = dotenv.env['SECRET_KEY'];
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
 
   final String title;
 
@@ -45,12 +18,20 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  late Future<String>? openAIResponse;
+  late final TextEditingController promptController;
+  String responseText = '';
+  late ResponseModel responseModel;
 
   @override
   void initState() {
+    promptController = TextEditingController();
     super.initState();
-    openAIResponse = getOpenAIResponse('Complete the following text: Roses are red, violets are __');
+  }
+
+  @override
+  void dispose() {
+    promptController.dispose();
+    super.dispose();
   }
 
   @override
@@ -60,21 +41,57 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: Center(
-        child: FutureBuilder<String>(
-          future: openAIResponse,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const CircularProgressIndicator();
-            } else if (snapshot.hasError) {
-              return Text('Error: ${snapshot.error}');
-            } else {
-              return Text('OpenAI Response: ${snapshot.data}');
-            }
-          },
-        ),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          PromptBldr(responseText: responseText),
+          TextFieldBuilder(
+            promptController: promptController, btnFun: completionFun),
+        ],
       ),
     );
   }
-}
+  completionFun() async {
+    setState(() {
+      responseText = 'Loading...';
+    });
+
+    await Future.delayed(const Duration(seconds: 2)); // Introduce a delay
+
+
+    final response = await http.post(
+      Uri.parse('https://api.openai.com/v1/completions'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $apiKey',
+      },
+      body: jsonEncode({
+        'model': 'text-davinci-003',
+        'prompt': promptController.text,
+        'max_tokens': 50,
+        'temperature': 0,
+        'top_p': 1,
+      }),
+    );
+  if (response.statusCode == 200) {
+    // Check if the response body is a JSON string
+    if (response.headers['content-type']!.contains('application/json')) {
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      setState(() {
+        responseModel = ResponseModel.fromJson(responseData as String);
+        responseText = responseModel.choices[0]['text'];
+      });
+    } else {
+      // Handle the case where the response is not in the expected format
+      setState(() {
+        responseText = 'Error: Unexpected response format';
+      });
+    }
+  } else {
+    // Handle non-200 status code
+    setState(() {
+      responseText = 'Error: ${response.statusCode}';
+    });
+  }
+}}
 
