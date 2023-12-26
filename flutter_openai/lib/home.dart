@@ -6,8 +6,6 @@ import 'components/textfieldbldr.dart';
 import 'components/promptbldr.dart';
 import 'models/response_model.dart';
 
-final apiKey = dotenv.env['SECRET_KEY'];
-
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
@@ -52,46 +50,48 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
   completionFun() async {
-    setState(() {
-      responseText = 'Loading...';
-    });
+    setState(() => responseText = 'Loading...');
 
     await Future.delayed(const Duration(seconds: 2)); // Introduce a delay
 
 
     final response = await http.post(
-      Uri.parse('https://api.openai.com/v1/completions'),
+      Uri.parse('https://api.openai.com/v1/chat/completions'),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $apiKey',
+        'Authorization': 'Bearer ${dotenv.env['SECRET_KEY']}',
       },
       body: jsonEncode({
-        'model': 'text-davinci-003',
-        'prompt': promptController.text,
+        'model': 'gpt-3.5-turbo',
+        'messages': [
+          {'role': 'user', 'content': promptController.text},
+        ],
         'max_tokens': 50,
         'temperature': 0,
         'top_p': 1,
       }),
     );
-  if (response.statusCode == 200) {
-    // Check if the response body is a JSON string
-    if (response.headers['content-type']!.contains('application/json')) {
-      final Map<String, dynamic> responseData = jsonDecode(response.body);
-      setState(() {
-        responseModel = ResponseModel.fromJson(responseData as String);
-        responseText = responseModel.choices[0]['text'];
-      });
+
+    if (response.statusCode == 200) {
+      // Check if the response body is a JSON string
+      if (response.headers['content-type']!.contains('application/json')) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        setState(() {
+          responseModel = ResponseModel.fromJson(responseData as String);
+          responseText = responseModel.choices[0]['text'];
+          debugPrint(responseText);
+        });
+      } else {
+        // Handle the case where the response is not in the expected format
+        setState(() {
+          responseText = 'Error: Unexpected response format';
+        });
+      }
     } else {
-      // Handle the case where the response is not in the expected format
+      // Handle non-200 status code
       setState(() {
-        responseText = 'Error: Unexpected response format';
+        responseText = 'Error: ${response.statusCode}';
       });
     }
-  } else {
-    // Handle non-200 status code
-    setState(() {
-      responseText = 'Error: ${response.statusCode}';
-    });
-  }
 }}
 

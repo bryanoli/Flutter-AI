@@ -20,7 +20,7 @@ class TextFieldBuilder extends StatelessWidget {
           children: [
             Flexible(
               child: TextFormField(
-                cursorColor: Colors.green,
+                cursorColor: Colors.white,
                 controller: promptController,
                 autofocus: true,
                 style: const TextStyle(
@@ -36,10 +36,10 @@ class TextFieldBuilder extends StatelessWidget {
                     borderSide: BorderSide(color: Colors.black),
                   ),
                   filled: true,
-                  fillColor: Colors.grey,
+                  fillColor: Color.fromARGB(255, 50, 50, 50),
                   hintText: 'Enter your prompt here',
                   hintStyle: TextStyle(
-                    color: Colors.grey,
+                    color: Colors.white,
                     fontSize: 20,
                   ),
                 ),
